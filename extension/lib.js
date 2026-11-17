@@ -21,7 +21,7 @@ function trackrExtract() {
 
 async function trackrOrigin() {
   const { trackrOrigin } = await chrome.storage.sync.get('trackrOrigin')
-  return (trackrOrigin || 'http://localhost:5173').replace(/\/$/, '')
+  return (trackrOrigin || 'https://trackr-eminence14s-projects.vercel.app').replace(/\/$/, '')
 }
 
 // Opens Trackr with the page text in the URL fragment (a fragment is never sent to any server).

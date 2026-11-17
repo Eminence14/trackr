@@ -17,6 +17,13 @@ import { hostOf, safeUrl, tidyUrl } from '../lib/url'
 import { uid } from '../lib/ids'
 import { useThumb } from '../lib/thumbs'
 
+/** "closes in 5 weeks", "closes tomorrow", "closed 3 days ago", "open now" */
+function whenText(opens: boolean, days: number): string {
+  const rel = days === 0 ? 'today' : days === 1 ? 'tomorrow' : `in ${fmtRelative(days)}`
+  if (opens) return days < 0 ? 'open now' : `opens ${rel}`
+  return days < 0 ? `closed ${-days} day${days === -1 ? '' : 's'} ago` : `closes ${rel}`
+}
+
 export function Detail() {
   const { id } = useParams()
   const nav = useNavigate()
@@ -116,7 +123,7 @@ export function Detail() {
                     <input className="input" style={{ width: 120 }} type="time" aria-label="Time" value={d.time ?? ''} onChange={(e) => patchDeadline(d, { time: e.target.value || undefined })} />
                     <select className="select" style={{ width: 'auto' }} aria-label="Time zone of this deadline" value={d.tz ?? ''} onChange={(e) => patchDeadline(d, { tz: e.target.value || undefined })}><option value="">Zone not stated</option>{Array.from(new Set([...(d.tz ? [d.tz] : []), ...COMMON_TZS])).map((z) => <option key={z}>{z}</option>)}</select>
                   </div>
-                  <p className="small"><b>{fmtLong(local.date)}{local.time ? `, ${local.time}` : ''}</b> in your time{d.tz && d.tz !== profile.tz && d.time ? ` (${d.time} ${d.tz})` : ''} · <span className="sub">{d.kind === 'opens' ? 'opens' : 'closes'} {fmtRelative(days)}</span></p>
+                  <p className="small"><b>{fmtLong(local.date)}{local.time ? `, ${local.time}` : ''}</b> in your time{d.tz && d.tz !== profile.tz && d.time ? ` (${d.time} ${d.tz})` : ''} · <span className="sub">{whenText(d.kind === 'opens', days)}</span></p>
                   {!d.time && d.kind !== 'opens' && <p className="hint">No closing time listed. Treat the end of the day in the funder's own time zone as the limit.</p>}
                 </div>
               )
