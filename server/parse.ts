@@ -364,7 +364,8 @@ async function parseOnce(req: Request, budgetMs: number): Promise<Response> {
   const left = () => budgetMs - (Date.now() - startedAt)
   const diag: object[] = [] // which models were tried and how long each took; no secrets
   if (req.method !== 'POST') return json(405, { error: 'POST only' })
-  const allowed = (process.env.ALLOWED_ORIGINS ?? '').split(',').map((x) => x.trim()).filter(Boolean)
+  // Only real web origins count, so a stray comment or typo in the setting cannot lock everyone out.
+  const allowed = (process.env.ALLOWED_ORIGINS ?? '').split(',').map((x) => x.trim().replace(/\/$/, '')).filter((x) => /^https?:\/\/[^\s/]+$/.test(x))
   const origin = req.headers.get('origin')
   if (allowed.length && origin && !allowed.includes(origin)) return json(403, { error: 'Origin not allowed' })
 

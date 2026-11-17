@@ -29,14 +29,15 @@ const env = existsSync('.env') ? readFileSync('.env', 'utf8') : ''
 const wanted = ['GEMINI_API_KEY', 'GEMINI_MODEL', 'GEMINI_FALLBACK_MODEL', 'RATE_LIMIT_PER_MIN', 'IMAGE_LIMIT_PER_MIN', 'AI_CONCURRENCY', 'READER_FALLBACK', 'ALLOWED_ORIGINS']
 let copied = 0
 for (const name of wanted) {
-  const m = env.match(new RegExp(`^\\s*${name}\\s*=\\s*(.*)\\s*$`, 'm'))
+  // [^\\S\\n] is a space or tab, never a newline: a blank value must not swallow the next line.
+  const m = env.match(new RegExp(`^[^\\S\\n]*${name}[^\\S\\n]*=[^\\S\\n]*([^\\n]*)$`, 'm'))
   const value = m?.[1]?.replace(/^['"]|['"]$/g, '').trim()
   if (!value) continue
   quiet(`${VERCEL} env rm ${name} production --yes`)
   if (quiet(`${VERCEL} env add ${name} production`, value)) { copied++; console.log(`  set ${name}`) }
   else console.log(`  could not set ${name}`)
 }
-if (!env.match(/^\s*GEMINI_API_KEY\s*=\s*\S/m)) console.log('  GEMINI_API_KEY is missing from .env, so the AI reader will be off and the basic reader will be used.')
+if (!env.match(/^[^\S\n]*GEMINI_API_KEY[^\S\n]*=[^\S\n]*\S/m)) console.log('  GEMINI_API_KEY is missing from .env, so the AI reader will be off and the basic reader will be used.')
 console.log(`  ${copied} setting(s) copied`)
 
 step('Publishing to production')
