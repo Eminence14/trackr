@@ -338,6 +338,21 @@ const aiBreaker = breaker()
 export const _aiBreaker = aiBreaker
 
 const modelCooldown = new Map<string, number>()
+const HEDGE_MS = Number(process.env.GEMINI_HEDGE_MS) || 3000
+/** Start `run`; if it has not finished after `ms`, start a second copy. The first success wins; it fails only when every copy started has failed. */
+export function hedged<T>(run: () => Promise<T>, ms: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    let pending = 0
+    let done = false
+    const finish = (f: () => void) => { if (!done) { done = true; clearTimeout(timer); f() } }
+    const go = () => {
+      pending++
+      run().then((v) => finish(() => resolve(v)), (e) => { pending--; if (pending === 0) finish(() => reject(e)) })
+    }
+    const timer = setTimeout(() => { if (!done) go() }, ms)
+    go()
+  })
+}
 /** Ask the main model; if it is out of quota or overloaded, try the lighter fallback model; if both are, pause AI calls briefly. */
 async function callGemini(parts: unknown[], fields: FieldSpec[], today: string, key: string, model: string, left: () => number, diag?: object[]) {
   if (aiBreaker.open()) throw Object.assign(new Error('AI paused: quota'), { status: 429 })
@@ -354,7 +369,9 @@ async function callGemini(parts: unknown[], fields: FieldSpec[], today: string, 
     const share = i < models.length - 1 ? Math.min(left() * 0.55, m.includes('lite') ? 6_000 : 12_000) : left() - 400
     const t0 = Date.now()
     try {
-      const out = await aiGate(() => callModel(parts, fields, today, key, m, share), Math.max(200, left() - 2500))
+      const attempt = () => aiGate(() => callModel(parts, fields, today, key, m, share), Math.max(200, left() - 2500))
+      // When the main model is slow (Google under load), a second identical request often lands first.
+      const out = i === 0 && share > 5000 ? await hedged(attempt, HEDGE_MS) : await attempt()
       diag?.push({ model: m, ms: Date.now() - t0, status: 200, thinking: thinkingChoice.get(m), shape: lastShape.get(m), deadlines: Array.isArray(out?.deadlines) ? out.deadlines.length : -1 })
       return Object.assign(out ?? {}, { __model: m })
     } catch (e) {

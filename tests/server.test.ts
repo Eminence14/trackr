@@ -191,3 +191,17 @@ describe('cleaning the AI answer', () => {
     expect(result.applicationUrl).toBe('https://lnkd.in/eVdZ2-vX')
   })
 })
+
+describe('hedged requests', () => {
+  it('uses a second copy when the first is slow, and fails only when all copies fail', async () => {
+    const { hedged } = await import('../server/parse')
+    let n = 0
+    const slowThenFast = () => (++n === 1 ? new Promise<string>((r) => setTimeout(() => r('slow'), 300)) : Promise.resolve('fast'))
+    expect(await hedged(slowThenFast, 50)).toBe('fast')
+    let m = 0
+    const quickFail = () => { m++; return Promise.reject(new Error('quota')) }
+    await expect(hedged(quickFail, 50)).rejects.toThrow('quota')
+    expect(m).toBe(1) // a fast failure is not retried here
+    expect(await hedged(() => Promise.resolve('ok'), 50)).toBe('ok')
+  })
+})
