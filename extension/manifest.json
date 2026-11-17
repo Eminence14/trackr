@@ -1,0 +1,10 @@
+{
+  "manifest_version": 3,
+  "name": "Save to Trackr",
+  "version": "0.1.0",
+  "description": "Send the page or text you are reading to your Trackr scholarship tracker.",
+  "permissions": ["activeTab", "contextMenus", "storage", "scripting"],
+  "action": { "default_popup": "popup.html", "default_title": "Save to Trackr" },
+  "background": { "service_worker": "background.js" },
+  "options_page": "options.html"
+}

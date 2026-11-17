@@ -1,0 +1,12 @@
+node_modules
+dist
+.env
+.env.*
+!.env.example
+*.log
+.netlify
+.vercel
+Documents
+tests/fixtures/real
+android
+extension

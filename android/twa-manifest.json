@@ -1,0 +1,23 @@
+{
+  "packageId": "app.trackr.twa",
+  "host": "trackr.example.com",
+  "name": "Trackr",
+  "launcherName": "Trackr",
+  "display": "standalone",
+  "themeColor": "#0B6B4D",
+  "navigationColor": "#F6F3EC",
+  "backgroundColor": "#F6F3EC",
+  "startUrl": "/",
+  "iconUrl": "https://trackr.example.com/icon-512.png",
+  "maskableIconUrl": "https://trackr.example.com/icon-maskable-512.png",
+  "enableNotifications": true,
+  "shareTarget": {
+    "action": "/share-target", "method": "POST", "enctype": "multipart/form-data",
+    "params": { "title": "title", "text": "text", "url": "url", "files": [{ "name": "media", "accept": ["image/*"] }] }
+  },
+  "appVersionName": "0.1.0",
+  "appVersionCode": 1,
+  "signingKey": { "path": "./android.keystore", "alias": "trackr" },
+  "fallbackType": "customtabs",
+  "minSdkVersion": 21
+}
