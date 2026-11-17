@@ -108,7 +108,7 @@ describe('parse endpoint', () => {
   it('falls back to the lighter model, then pauses the AI and still answers', async () => {
     aiStatus = (m) => (m.includes('lite') ? 429 : 200)
     const ok = await (await post({ url: 'https://acme.example.org/a' })).json()
-    expect(ok.mode).toBe('gemini'); expect(calls.models.length).toBe(2)
+    expect(ok.mode).toBe('gemini'); expect(calls.models.length).toBe(4); expect(calls.models.at(-1)).not.toContain('lite') // three quick models, then the full one
     aiStatus = () => 429
     const degraded = await (await post({ url: 'https://acme.example.org/b' })).json()
     expect(degraded.mode).toBe('none'); expect(degraded.sourceText).toContain('Acme Scholarship') // the app reads this text itself

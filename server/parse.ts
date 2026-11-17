@@ -288,8 +288,12 @@ async function callModel(parts: unknown[], fields: FieldSpec[], today: string, k
   let res = await call(THINKING[idx])
   while (res.status === 400 && idx < THINKING.length - 1) { idx++; res = await call(THINKING[idx]) }
   if (res.ok) thinkingChoice.set(model, idx)
-  // "High demand" is usually over in a moment: one quick second try before giving up on this model.
-  if (res.status === 503 && timeoutMs - (Date.now() - began) > 4000) { await new Promise((r) => setTimeout(r, 700)); res = await call(THINKING[idx]) }
+  // "High demand" is usually over in a moment: up to two quick retries before giving up on this model.
+  for (const wait of [500, 1200]) {
+    if (res.status !== 503 || timeoutMs - (Date.now() - began) < wait + 2500) break
+    await new Promise((r) => setTimeout(r, wait + Math.random() * 300))
+    res = await call(THINKING[idx])
+  }
   if (!res.ok) throw Object.assign(new Error(`Gemini returned ${res.status}: ${(await res.text()).slice(0, 200)}`), { status: res.status })
   const data: any = await res.json()
   const text = data?.candidates?.[0]?.content?.parts?.map((p: any) => p.text ?? '').join('') ?? ''
@@ -333,15 +337,21 @@ const aiGate = gate(Number(process.env.AI_CONCURRENCY) || 4)
 const aiBreaker = breaker()
 export const _aiBreaker = aiBreaker
 
+const modelCooldown = new Map<string, number>()
 /** Ask the main model; if it is out of quota or overloaded, try the lighter fallback model; if both are, pause AI calls briefly. */
 async function callGemini(parts: unknown[], fields: FieldSpec[], today: string, key: string, model: string, left: () => number, diag?: object[]) {
   if (aiBreaker.open()) throw Object.assign(new Error('AI paused: quota'), { status: 429 })
-  const models = [model, process.env.GEMINI_FALLBACK_MODEL || (model.includes('lite') ? 'gemini-flash-latest' : 'gemini-flash-lite-latest')].filter((m, i, all) => m && all.indexOf(m) === i)
+  // Main model, then quick pinned models (each has its own capacity and free quota), then the slower fallback.
+  // A model that just ran out of quota is skipped for a minute instead of being asked again.
+  const extra = (process.env.GEMINI_EXTRA_MODELS ?? 'gemini-2.5-flash-lite,gemini-2.0-flash-lite').split(',').map((x) => x.trim())
+  const models = [model, ...extra, process.env.GEMINI_FALLBACK_MODEL || (model.includes('lite') ? 'gemini-flash-latest' : 'gemini-flash-lite-latest')]
+    .filter((m, i, all) => m && all.indexOf(m) === i && (modelCooldown.get(m) ?? 0) < Date.now())
   let lastErr: unknown
+  let allQuota = models.length > 0
   for (const [i, m] of models.entries()) {
     if (left() < 2500) break
     // The first model may not use the whole budget: leave the fallback enough time to answer.
-    const share = i < models.length - 1 ? Math.min(left() * 0.55, 12_000) : left() - 400
+    const share = i < models.length - 1 ? Math.min(left() * 0.55, m.includes('lite') ? 6_000 : 12_000) : left() - 400
     const t0 = Date.now()
     try {
       const out = await aiGate(() => callModel(parts, fields, today, key, m, share), Math.max(200, left() - 2500))
@@ -352,10 +362,14 @@ async function callGemini(parts: unknown[], fields: FieldSpec[], today: string, 
       const status = (e as { status?: number }).status
       const timedOut = (e as Error)?.name === 'TimeoutError' || /timeout|aborted/i.test(String((e as Error)?.message))
       diag?.push({ model: m, ms: Date.now() - t0, status: status ?? (timedOut ? 'timeout' : String((e as Error)?.message).slice(0, 60)) })
-      if (status !== 429 && status !== 503 && status !== 500 && !timedOut) break // a different model will not fix a bad request
+      if (status === 429) modelCooldown.set(m, Date.now() + 60_000)
+      else if (status !== 404) allQuota = false
+      if (status === 404) modelCooldown.set(m, Date.now() + 3_600_000) // not offered to this key
+      if (status !== 429 && status !== 503 && status !== 500 && status !== 404 && !timedOut) break // a different model will not fix a bad request
     }
   }
-  if ((lastErr as { status?: number })?.status === 429) aiBreaker.trip(45_000)
+  // Pause all AI calls only when every model is out of quota; one busy model is not a reason to stop asking the others.
+  if (allQuota && (lastErr as { status?: number })?.status === 429) aiBreaker.trip(45_000)
   throw lastErr ?? new Error('No time left for the AI reader')
 }
 
