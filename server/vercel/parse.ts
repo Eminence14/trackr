@@ -6,6 +6,6 @@ const json = (status: number, body: unknown) => new Response(JSON.stringify(body
 export async function POST(req: Request): Promise<Response> {
   // Vercel sets x-real-ip to the caller's address; it cannot be forged by the client.
   const clientId = req.headers.get('x-real-ip') ?? undefined
-  return handleParse(req, { clientId, budgetMs: Number(process.env.PARSE_BUDGET_MS) || 15_000 })
+  return handleParse(req, { clientId, budgetMs: Number(process.env.PARSE_BUDGET_MS) || 10_000 })
 }
 export function GET(): Response { return json(405, { error: 'POST only' }) }
