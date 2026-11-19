@@ -41,7 +41,7 @@ export function Settings() {
         <button className="btn" style={{ alignSelf: 'flex-start' }} onClick={async () => { if (typeof Notification === 'undefined') return toast('This browser does not support notifications'); const r = await Notification.requestPermission(); toast(r === 'granted' ? 'Notifications are on' : 'Notifications are off') }}>Allow notifications on this device</button>
       </section>
       <section className="card stack"><h3>Appearance</h3>
-        <div className="chips">{(['system', 'light', 'dark'] as const).map((t) => <button key={t} className="chip" aria-pressed={(profile.theme ?? 'system') === t} onClick={() => set({ theme: t })}>{({ system: 'Auto', light: 'Dawn', dark: 'Night' })[t]}</button>)}</div></section>
+        <div className="chips">{(['system', 'light', 'dark'] as const).map((t) => <button key={t} className="chip" aria-pressed={(profile.theme ?? 'system') === t} onClick={() => set({ theme: t })}>{({ system: 'Auto', light: 'Light', dark: 'Dark' })[t]}</button>)}</div></section>
       <section className="card stack"><h3>Send things to Trackr faster</h3>
         <p className="small sub"><b>Android:</b> install Trackr from the browser menu (Add to Home screen). It then appears in the share sheet of WhatsApp, LinkedIn, X and your browser.</p>
         <p className="small sub"><b>iPhone and iPad:</b> Safari cannot add web apps to the share sheet. Copy the link or text and paste it into Add, or set up the Shortcut described in the README.</p>
